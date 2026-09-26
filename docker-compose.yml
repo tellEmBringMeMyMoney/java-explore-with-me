@@ -13,7 +13,7 @@ services:
       timeout: 5s
       retries: 10
 
-  stats-server:
+  ewm-service:
     build:
       context: .
       dockerfile: ewm-stats-service/ewm-stats-server/Dockerfile

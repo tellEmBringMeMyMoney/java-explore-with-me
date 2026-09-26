@@ -31,9 +31,8 @@ class StatsControllerTest {
     @Test
     void createsHitWith201AndRejectsInvalidPayload() throws Exception {
         mvc.perform(post("/hit").contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"app":"main","uri":"/events/1","ip":"127.0.0.1","timestamp":"2025-01-01 12:00:00"}
-                                """))
+                        .content("{\"app\":\"main\",\"uri\":\"/events/1\",\"ip\":\"127.0.0.1\","
+                                + "\"timestamp\":\"2025-01-01 12:00:00\"}"))
                 .andExpect(status().isCreated());
         mvc.perform(post("/hit").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"app\":\"\",\"uri\":\"/x\",\"ip\":\"127.0.0.1\",\"timestamp\":\"bad\"}"))
