@@ -72,7 +72,7 @@ public class EventCommandService {
         validateUpdate(b, false);
         apply(e, b);
         if (b.get("eventDate") != null && e.getEventDate().isBefore(LocalDateTime.now().plusHours(2)))
-            throw new ConflictException("Event date must be at least two hours in the future");
+            throw new IllegalArgumentException("Event date must be at least two hours in the future");
         if (e.getParticipantLimit() > 0 && requests.countByEventIdAndStatus(id, "CONFIRMED") > e.getParticipantLimit())
             throw new ConflictException("Participant limit cannot be lower than confirmed requests");
         if ("CANCEL_REVIEW".equals(b.get("stateAction"))) e.setState(EventState.CANCELED);
@@ -85,6 +85,8 @@ public class EventCommandService {
         EventEntity e = event(id);
         validateUpdate(b, true);
         apply(e, b);
+        if (b.get("eventDate") != null && e.getEventDate().isBefore(LocalDateTime.now()))
+            throw new IllegalArgumentException("Event date must be in the future");
         if ("PUBLISH_EVENT".equals(b.get("stateAction"))) {
             if (e.getState() != EventState.PENDING) throw new ConflictException("Event is not pending");
             if (e.getEventDate().isBefore(LocalDateTime.now().plusHours(1)))

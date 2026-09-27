@@ -11,6 +11,7 @@ import ru.practicum.ewm.main.repository.RequestRepository;
 import ru.practicum.ewm.main.repository.UserRepository;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
@@ -43,7 +44,7 @@ public class RequestService {
         if (e.getParticipantLimit() > 0 && count >= e.getParticipantLimit())
             throw new ConflictException("Participant limit reached");
         String status = !e.isRequestModeration() || e.getParticipantLimit() == 0 ? "CONFIRMED" : "PENDING";
-        return dto(requests.save(new RequestEntity(LocalDateTime.now(), e, u, status)));
+        return dto(requests.save(new RequestEntity(LocalDateTime.now().truncatedTo(ChronoUnit.MICROS), e, u, status)));
     }
 
     @Transactional

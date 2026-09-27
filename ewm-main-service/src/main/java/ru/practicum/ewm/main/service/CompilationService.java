@@ -27,7 +27,7 @@ public class CompilationService {
         validate(b, true);
         CompilationEntity c = new CompilationEntity((String) b.get("title"), booleanValue(b.get("pinned"), false));
         if (b.get("events") instanceof List<?> ids) c.setEvents(resolve(ids));
-        return dtos(List.of(compilations.save(c))).get(0);
+        return dtos(List.of(compilations.save(c)), true).get(0);
     }
 
     @Transactional
@@ -38,19 +38,19 @@ public class CompilationService {
         if (b.get("title") != null) c.setTitle((String) b.get("title"));
         if (b.get("pinned") != null) c.setPinned(booleanValue(b.get("pinned"), c.isPinned()));
         if (b.get("events") instanceof List<?> ids) c.setEvents(resolve(ids));
-        return dtos(List.of(c)).get(0);
+        return dtos(List.of(c), true).get(0);
     }
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> list(Boolean pinned, int from, int size) {
         if (from < 0 || size <= 0) throw new IllegalArgumentException("Invalid pagination values");
         org.springframework.data.domain.Pageable p = new OffsetPageRequest(from, size, org.springframework.data.domain.Sort.by("id"));
-        return dtos((pinned == null ? compilations.findAll(p) : compilations.findByPinned(pinned, p)).getContent());
+        return dtos((pinned == null ? compilations.findAll(p) : compilations.findByPinned(pinned, p)).getContent(), false);
     }
 
     @Transactional(readOnly = true)
     public Map<String, Object> get(long id) {
-        return dtos(List.of(getEntity(id))).get(0);
+        return dtos(List.of(getEntity(id)), false).get(0);
     }
 
     @Transactional
@@ -106,9 +106,10 @@ public class CompilationService {
         return value instanceof Boolean b ? b : Boolean.parseBoolean((String) value);
     }
 
-    private List<Map<String, Object>> dtos(List<CompilationEntity> compilations) {
-        List<EventEntity> all = compilations.stream().flatMap(c -> c.getEvents().stream()).filter(e -> e.getState() == EventState.PUBLISHED).distinct().toList();
+    private List<Map<String, Object>> dtos(List<CompilationEntity> compilations, boolean includeUnpublished) {
+        List<EventEntity> all = compilations.stream().flatMap(c -> c.getEvents().stream())
+                .filter(e -> includeUnpublished || e.getState() == EventState.PUBLISHED).distinct().toList();
         Map<Long, Map<String, Object>> mapped = eventMapper.mapAll(all, false);
-        return compilations.stream().map(c -> Map.<String, Object>of("id", c.getId(), "title", c.getTitle(), "pinned", c.isPinned(), "events", c.getEvents().stream().filter(e -> e.getState() == EventState.PUBLISHED).map(e -> mapped.get(e.getId())).toList())).toList();
+        return compilations.stream().map(c -> Map.<String, Object>of("id", c.getId(), "title", c.getTitle(), "pinned", c.isPinned(), "events", c.getEvents().stream().filter(e -> includeUnpublished || e.getState() == EventState.PUBLISHED).map(e -> mapped.get(e.getId())).toList())).toList();
     }
 }
