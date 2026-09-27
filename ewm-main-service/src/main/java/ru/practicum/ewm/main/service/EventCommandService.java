@@ -43,7 +43,7 @@ public class EventCommandService {
         if (date.isBefore(LocalDateTime.now().plusHours(2)))
             throw new ConflictException("Event date must be at least two hours in the future");
         Map<String, Object> l = (Map<String, Object>) b.get("location");
-        EventEntity e = new EventEntity((String) b.get("annotation"), (String) b.get("description"), date, LocalDateTime.now(), ((Number) l.get("lat")).doubleValue(), ((Number) l.get("lon")).doubleValue(), Boolean.TRUE.equals(b.get("paid")), ((Number) b.getOrDefault("participantLimit", 0)).intValue(), !Boolean.FALSE.equals(b.get("requestModeration")), (String) b.get("title"), c, u);
+        EventEntity e = new EventEntity((String) b.get("annotation"), (String) b.get("description"), date, LocalDateTime.now(), ((Number) l.get("lat")).doubleValue(), ((Number) l.get("lon")).doubleValue(), booleanValue(b.get("paid"), false), ((Number) b.getOrDefault("participantLimit", 0)).intValue(), booleanValue(b.get("requestModeration"), true), (String) b.get("title"), c, u);
         return dto(events.save(e));
     }
 
@@ -104,9 +104,9 @@ public class EventCommandService {
         if (b.get("title") != null) e.setTitle((String) b.get("title"));
         if (b.get("eventDate") != null) e.setEventDate(parseDate((String) b.get("eventDate")));
         if (b.get("category") != null) e.setCategory(category(((Number) b.get("category")).longValue()));
-        if (b.get("paid") != null) e.setPaid((Boolean) b.get("paid"));
+        if (b.get("paid") != null) e.setPaid(booleanValue(b.get("paid"), e.isPaid()));
         if (b.get("participantLimit") != null) e.setParticipantLimit(((Number) b.get("participantLimit")).intValue());
-        if (b.get("requestModeration") != null) e.setRequestModeration((Boolean) b.get("requestModeration"));
+        if (b.get("requestModeration") != null) e.setRequestModeration(booleanValue(b.get("requestModeration"), e.isRequestModeration()));
         if (b.get("location") instanceof Map<?, ?> l) {
             e.setLat(((Number) l.get("lat")).doubleValue());
             e.setLon(((Number) l.get("lon")).doubleValue());
@@ -153,9 +153,9 @@ public class EventCommandService {
         parseDate(s);
         int limit = b.get("participantLimit") instanceof Number n ? n.intValue() : 0;
         if (limit < 0) throw new IllegalArgumentException("participantLimit must be non-negative");
-        if (b.get("paid") != null && !(b.get("paid") instanceof Boolean))
+        if (b.get("paid") != null && !isBooleanValue(b.get("paid")))
             throw new IllegalArgumentException("paid must be boolean");
-        if (b.get("requestModeration") != null && !(b.get("requestModeration") instanceof Boolean))
+        if (b.get("requestModeration") != null && !isBooleanValue(b.get("requestModeration")))
             throw new IllegalArgumentException("requestModeration must be boolean");
     }
 
@@ -175,9 +175,9 @@ public class EventCommandService {
             throw new IllegalArgumentException("participantLimit must be an integer");
         if (b.get("category") != null && !(b.get("category") instanceof Number))
             throw new IllegalArgumentException("category must be an integer");
-        if (b.get("paid") != null && !(b.get("paid") instanceof Boolean))
+        if (b.get("paid") != null && !isBooleanValue(b.get("paid")))
             throw new IllegalArgumentException("paid must be boolean");
-        if (b.get("requestModeration") != null && !(b.get("requestModeration") instanceof Boolean))
+        if (b.get("requestModeration") != null && !isBooleanValue(b.get("requestModeration")))
             throw new IllegalArgumentException("requestModeration must be boolean");
         if (b.get("location") != null && (!(b.get("location") instanceof Map<?, ?> l) || !(l.get("lat") instanceof Number) || !(l.get("lon") instanceof Number)))
             throw new IllegalArgumentException("location requires numeric lat and lon");
@@ -194,6 +194,15 @@ public class EventCommandService {
         }
         if (!(raw instanceof String s) || s.length() < min || s.length() > max)
             throw new IllegalArgumentException(key + " must contain " + min + ".." + max + " characters");
+    }
+
+    private boolean isBooleanValue(Object value) {
+        return value instanceof Boolean || value instanceof String s && ("true".equalsIgnoreCase(s) || "false".equalsIgnoreCase(s));
+    }
+
+    private boolean booleanValue(Object value, boolean defaultValue) {
+        if (value == null) return defaultValue;
+        return value instanceof Boolean b ? b : Boolean.parseBoolean((String) value);
     }
 
     private Map<String, Object> dto(EventEntity e) {

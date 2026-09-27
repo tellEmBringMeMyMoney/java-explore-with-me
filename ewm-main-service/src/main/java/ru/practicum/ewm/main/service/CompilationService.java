@@ -25,17 +25,18 @@ public class CompilationService {
     @Transactional
     public Map<String, Object> create(Map<String, Object> b) {
         validate(b, true);
-        CompilationEntity c = new CompilationEntity((String) b.get("title"), Boolean.TRUE.equals(b.get("pinned")));
+        CompilationEntity c = new CompilationEntity((String) b.get("title"), booleanValue(b.get("pinned"), false));
         if (b.get("events") instanceof List<?> ids) c.setEvents(resolve(ids));
         return dtos(List.of(compilations.save(c))).get(0);
     }
 
     @Transactional
     public Map<String, Object> update(long id, Map<String, Object> b) {
+        if (b == null) b = Map.of();
         validate(b, false);
         CompilationEntity c = getEntity(id);
         if (b.get("title") != null) c.setTitle((String) b.get("title"));
-        if (b.get("pinned") != null) c.setPinned((Boolean) b.get("pinned"));
+        if (b.get("pinned") != null) c.setPinned(booleanValue(b.get("pinned"), c.isPinned()));
         if (b.get("events") instanceof List<?> ids) c.setEvents(resolve(ids));
         return dtos(List.of(c)).get(0);
     }
@@ -64,8 +65,12 @@ public class CompilationService {
     private Set<EventEntity> resolve(List<?> ids) {
         Set<EventEntity> set = new LinkedHashSet<>();
         for (Object value : ids) {
-            if (!(value instanceof Number number)) throw new IllegalArgumentException("events must contain event IDs");
-            long id = number.longValue();
+            long id;
+            if (value instanceof Number number) id = number.longValue();
+            else if (value instanceof String text) {
+                try { id = Long.parseLong(text); }
+                catch (NumberFormatException ex) { throw new IllegalArgumentException("events must contain event IDs"); }
+            } else throw new IllegalArgumentException("events must contain event IDs");
             if (!set.add(events.findById(id).orElseThrow(() -> new NotFoundException("Event with id=" + id + " was not found"))))
                 throw new IllegalArgumentException("events must not contain duplicates");
         }
@@ -78,12 +83,21 @@ public class CompilationService {
         if (create && !(title instanceof String)) throw new IllegalArgumentException("title is required");
         if (title != null && (!(title instanceof String s) || s.isBlank() || s.length() > 50))
             throw new IllegalArgumentException("title must contain 1..50 characters");
-        if (b.get("pinned") != null && !(b.get("pinned") instanceof Boolean))
+        if (b.get("pinned") != null && !isBooleanValue(b.get("pinned")))
             throw new IllegalArgumentException("pinned must be boolean");
         if (b.get("events") != null && !(b.get("events") instanceof List<?>))
             throw new IllegalArgumentException("events must be an array");
         if (b.get("events") instanceof List<?> ids && new HashSet<>(ids).size() != ids.size())
             throw new IllegalArgumentException("events must not contain duplicates");
+    }
+
+    private boolean isBooleanValue(Object value) {
+        return value instanceof Boolean || value instanceof String s && ("true".equalsIgnoreCase(s) || "false".equalsIgnoreCase(s));
+    }
+
+    private boolean booleanValue(Object value, boolean defaultValue) {
+        if (value == null) return defaultValue;
+        return value instanceof Boolean b ? b : Boolean.parseBoolean((String) value);
     }
 
     private List<Map<String, Object>> dtos(List<CompilationEntity> compilations) {

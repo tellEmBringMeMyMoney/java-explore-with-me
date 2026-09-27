@@ -22,7 +22,7 @@ public class CompilationController {
     }
 
     @PatchMapping("/admin/compilations/{compId}")
-    public Map<String, Object> update(@PathVariable long compId, @RequestBody Map<String, Object> b) {
+    public Map<String, Object> update(@PathVariable long compId, @RequestBody(required = false) Map<String, Object> b) {
         return service.update(compId, b);
     }
 
