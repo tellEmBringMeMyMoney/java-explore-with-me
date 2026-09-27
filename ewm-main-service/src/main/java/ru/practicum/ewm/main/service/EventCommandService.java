@@ -41,7 +41,7 @@ public class EventCommandService {
         CategoryEntity c = category(((Number) b.get("category")).longValue());
         LocalDateTime date = parseDate((String) b.get("eventDate"));
         if (date.isBefore(LocalDateTime.now().plusHours(2)))
-            throw new ConflictException("Event date must be at least two hours in the future");
+            throw new IllegalArgumentException("Event date must be at least two hours in the future");
         Map<String, Object> l = (Map<String, Object>) b.get("location");
         EventEntity e = new EventEntity((String) b.get("annotation"), (String) b.get("description"), date, LocalDateTime.now(), ((Number) l.get("lat")).doubleValue(), ((Number) l.get("lon")).doubleValue(), booleanValue(b.get("paid"), false), ((Number) b.getOrDefault("participantLimit", 0)).intValue(), booleanValue(b.get("requestModeration"), true), (String) b.get("title"), c, u);
         return dto(events.save(e));
@@ -192,7 +192,7 @@ public class EventCommandService {
             if (required) throw new IllegalArgumentException(key + " is required");
             return;
         }
-        if (!(raw instanceof String s) || s.length() < min || s.length() > max)
+        if (!(raw instanceof String s) || s.isBlank() || s.length() < min || s.length() > max)
             throw new IllegalArgumentException(key + " must contain " + min + ".." + max + " characters");
     }
 
