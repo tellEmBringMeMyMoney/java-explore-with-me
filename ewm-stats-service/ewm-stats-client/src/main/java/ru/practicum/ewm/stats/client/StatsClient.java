@@ -1,5 +1,6 @@
 package ru.practicum.ewm.stats.client;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -21,6 +22,7 @@ public class StatsClient {
     private final RestTemplate restTemplate;
     private final String serverUrl;
 
+    @Autowired
     public StatsClient(@Value("${stats-server.url:http://localhost:9090}") String serverUrl) {
         this(serverUrl, new RestTemplate());
     }

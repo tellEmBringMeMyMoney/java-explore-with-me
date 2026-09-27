@@ -9,10 +9,10 @@ COPY ewm-stats-service/ewm-stats-server/pom.xml ./ewm-stats-service/ewm-stats-se
 COPY ewm-stats-service/ewm-stats-dto/src ./ewm-stats-service/ewm-stats-dto/src
 COPY ewm-stats-service/ewm-stats-client/src ./ewm-stats-service/ewm-stats-client/src
 COPY ewm-stats-service/ewm-stats-server/src ./ewm-stats-service/ewm-stats-server/src
-RUN mvn -q -pl ewm-stats-service/ewm-stats-server -am package
-
+COPY ewm-main-service/src ./ewm-main-service/src
+RUN mvn -q -pl ewm-main-service -am package -DskipTests
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /workspace/ewm-stats-service/ewm-stats-server/target/ewm-stats-server-0.0.1-SNAPSHOT.jar app.jar
-EXPOSE 9090
+COPY --from=build /workspace/ewm-main-service/target/ewm-main-service-0.0.1-SNAPSHOT.jar app.jar
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
