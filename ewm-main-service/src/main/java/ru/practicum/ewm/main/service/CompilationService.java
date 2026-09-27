@@ -66,11 +66,17 @@ public class CompilationService {
         Set<EventEntity> set = new LinkedHashSet<>();
         for (Object value : ids) {
             long id;
-            if (value instanceof Number number) id = number.longValue();
-            else if (value instanceof String text) {
-                try { id = Long.parseLong(text); }
-                catch (NumberFormatException ex) { throw new IllegalArgumentException("events must contain event IDs"); }
-            } else throw new IllegalArgumentException("events must contain event IDs");
+            if (value instanceof Number number) {
+                id = number.longValue();
+            } else if (value instanceof String text) {
+                try {
+                    id = Long.parseLong(text);
+                } catch (NumberFormatException ex) {
+                    throw new IllegalArgumentException("events must contain event IDs");
+                }
+            } else {
+                throw new IllegalArgumentException("events must contain event IDs");
+            }
             if (!set.add(events.findById(id).orElseThrow(() -> new NotFoundException("Event with id=" + id + " was not found"))))
                 throw new IllegalArgumentException("events must not contain duplicates");
         }
