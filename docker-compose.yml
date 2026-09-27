@@ -13,7 +13,7 @@ services:
       timeout: 5s
       retries: 10
 
-  main-service:
+  ewm-service:
     build:
       context: .
       dockerfile: ewm-main-service/Dockerfile
