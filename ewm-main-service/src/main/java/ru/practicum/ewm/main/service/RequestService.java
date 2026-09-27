@@ -51,6 +51,8 @@ public class RequestService {
         RequestEntity r = requests.findById(rid).orElseThrow(() -> new NotFoundException("Request with id=" + rid + " was not found"));
         if (!r.getRequester().getId().equals(uid))
             throw new NotFoundException("Request with id=" + rid + " was not found");
+        if (!"PENDING".equals(r.getStatus()))
+            throw new ConflictException("Only pending requests can be canceled");
         r.setStatus("CANCELED");
         return dto(r);
     }

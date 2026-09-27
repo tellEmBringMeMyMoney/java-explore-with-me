@@ -35,9 +35,9 @@ public class CatalogService {
     public Map<String, Object> addUser(Map<String, Object> b) {
         if (b == null) throw new IllegalArgumentException("Request body is required");
         String name = stringField(b, "name"), email = stringField(b, "email");
-        if (name.length() < 2 || name.length() > 250)
+        if (name.isBlank() || name.length() < 2 || name.length() > 250)
             throw new IllegalArgumentException("name must contain 2..250 characters");
-        if (email.length() < 6 || email.length() > 254 || !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"))
+        if (!isValidEmail(email))
             throw new IllegalArgumentException("email is invalid");
         return user(users.save(new UserEntity(name, email)));
     }
@@ -96,6 +96,25 @@ public class CatalogService {
         Object value = body.get(name);
         if (!(value instanceof String text)) throw new IllegalArgumentException(name + " must be a string");
         return text;
+    }
+
+    private boolean isValidEmail(String email) {
+        if (email.length() < 6 || email.length() > 254 || email.isBlank()) return false;
+
+        int at = email.indexOf('@');
+        if (at <= 0 || at != email.lastIndexOf('@') || at > 64) return false;
+
+        String localPart = email.substring(0, at);
+        String domain = email.substring(at + 1);
+        if (domain.length() > 253 || !localPart.matches("[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+")) return false;
+
+        String[] labels = domain.split("\\.", -1);
+        if (labels.length < 2) return false;
+        for (String label : labels) {
+            if (label.isEmpty() || label.length() > 63 || !label.matches("[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"))
+                return false;
+        }
+        return true;
     }
 
     private void validatePagination(int from, int size) {
