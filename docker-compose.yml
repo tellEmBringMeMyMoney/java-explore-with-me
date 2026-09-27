@@ -52,7 +52,7 @@ services:
       context: .
       dockerfile: ewm-stats-service/ewm-stats-server/Dockerfile
     ports:
-      - "${STATS_PORT:-19090}:9090"
+      - "${STATS_PORT:-9090}:9090"
     environment:
       SERVER_PORT: 9090
       DB_HOST: stats-db
