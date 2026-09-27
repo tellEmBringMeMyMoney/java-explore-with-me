@@ -43,7 +43,7 @@ public class EventCommandService {
         if (date.isBefore(LocalDateTime.now().plusHours(2)))
             throw new IllegalArgumentException("Event date must be at least two hours in the future");
         Map<String, Object> l = (Map<String, Object>) b.get("location");
-        EventEntity e = new EventEntity((String) b.get("annotation"), (String) b.get("description"), date, LocalDateTime.now(), ((Number) l.get("lat")).doubleValue(), ((Number) l.get("lon")).doubleValue(), booleanValue(b.get("paid"), false), ((Number) b.getOrDefault("participantLimit", 0)).intValue(), booleanValue(b.get("requestModeration"), true), (String) b.get("title"), c, u);
+        EventEntity e = new EventEntity((String) b.get("annotation"), (String) b.get("description"), date, LocalDateTime.now(), ((Number) l.get("lat")).doubleValue(), ((Number) l.get("lon")).doubleValue(), booleanValue(b.get("paid"), false), integerValue(b.get("participantLimit"), 0), booleanValue(b.get("requestModeration"), true), (String) b.get("title"), c, u);
         return dto(events.save(e));
     }
 
@@ -105,7 +105,7 @@ public class EventCommandService {
         if (b.get("eventDate") != null) e.setEventDate(parseDate((String) b.get("eventDate")));
         if (b.get("category") != null) e.setCategory(category(((Number) b.get("category")).longValue()));
         if (b.get("paid") != null) e.setPaid(booleanValue(b.get("paid"), e.isPaid()));
-        if (b.get("participantLimit") != null) e.setParticipantLimit(((Number) b.get("participantLimit")).intValue());
+        if (b.get("participantLimit") != null) e.setParticipantLimit(integerValue(b.get("participantLimit"), e.getParticipantLimit()));
         if (b.get("requestModeration") != null) e.setRequestModeration(booleanValue(b.get("requestModeration"), e.isRequestModeration()));
         if (b.get("location") instanceof Map<?, ?> l) {
             e.setLat(((Number) l.get("lat")).doubleValue());
@@ -151,7 +151,7 @@ public class EventCommandService {
             throw new IllegalArgumentException("location requires numeric lat and lon");
         if (!(b.get("eventDate") instanceof String s)) throw new IllegalArgumentException("eventDate is required");
         parseDate(s);
-        int limit = b.get("participantLimit") instanceof Number n ? n.intValue() : 0;
+        int limit = integerValue(b.get("participantLimit"), 0);
         if (limit < 0) throw new IllegalArgumentException("participantLimit must be non-negative");
         if (b.get("paid") != null && !isBooleanValue(b.get("paid")))
             throw new IllegalArgumentException("paid must be boolean");
@@ -163,16 +163,13 @@ public class EventCommandService {
         for (String key : List.of("annotation", "description", "title"))
             if (b.get(key) != null) {
                 if (!(b.get(key) instanceof String)) throw new IllegalArgumentException(key + " must be a string");
-                if (!admin)
-                    validateText(b, key, "annotation".equals(key) ? 20 : "title".equals(key) ? 3 : 20, "annotation".equals(key) ? 2000 : "description".equals(key) ? 7000 : 120, false);
+                validateText(b, key, "annotation".equals(key) ? 20 : "title".equals(key) ? 3 : 20, "annotation".equals(key) ? 2000 : "description".equals(key) ? 7000 : 120, false);
             }
         if (b.get("eventDate") instanceof String s) parseDate(s);
         if (b.get("eventDate") != null && !(b.get("eventDate") instanceof String))
             throw new IllegalArgumentException("eventDate must be a string");
-        if (b.get("participantLimit") instanceof Number n && n.intValue() < 0)
+        if (b.get("participantLimit") != null && integerValue(b.get("participantLimit"), 0) < 0)
             throw new IllegalArgumentException("participantLimit must be non-negative");
-        if (b.get("participantLimit") != null && !(b.get("participantLimit") instanceof Number))
-            throw new IllegalArgumentException("participantLimit must be an integer");
         if (b.get("category") != null && !(b.get("category") instanceof Number))
             throw new IllegalArgumentException("category must be an integer");
         if (b.get("paid") != null && !isBooleanValue(b.get("paid")))
@@ -198,6 +195,25 @@ public class EventCommandService {
 
     private boolean isBooleanValue(Object value) {
         return value instanceof Boolean || value instanceof String s && ("true".equalsIgnoreCase(s) || "false".equalsIgnoreCase(s));
+    }
+
+    private int integerValue(Object value, int defaultValue) {
+        if (value == null) return defaultValue;
+        if (value instanceof Number number) {
+            double numericValue = number.doubleValue();
+            if (!Double.isFinite(numericValue) || numericValue != Math.rint(numericValue)
+                    || numericValue < Integer.MIN_VALUE || numericValue > Integer.MAX_VALUE)
+                throw new IllegalArgumentException("participantLimit must be an integer");
+            return (int) numericValue;
+        }
+        if (value instanceof String text) {
+            try {
+                return Integer.parseInt(text);
+            } catch (NumberFormatException ex) {
+                throw new IllegalArgumentException("participantLimit must be an integer");
+            }
+        }
+        throw new IllegalArgumentException("participantLimit must be an integer");
     }
 
     private boolean booleanValue(Object value, boolean defaultValue) {
