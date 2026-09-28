@@ -84,9 +84,9 @@ public class PublicEventService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> get(long id, HttpServletRequest request) {
-        recordHit("/events/" + id, request);
         EventEntity e = events.findDetailed(id).orElseThrow(() -> new NotFoundException("Event with id=" + id + " was not found"));
         if (e.getState() != EventState.PUBLISHED) throw new NotFoundException("Event with id=" + id + " was not found");
+        recordHit("/events/" + id, request);
         return mapper.map(e, true);
     }
 

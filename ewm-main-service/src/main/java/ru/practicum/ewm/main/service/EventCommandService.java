@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 @Service
 public class EventCommandService {
@@ -69,31 +68,31 @@ public class EventCommandService {
         EventEntity e = mineEntity(uid, id);
         if (e.getState() == EventState.PUBLISHED)
             throw new ConflictException("Only pending or canceled events can be changed");
-        validateUpdate(b, false);
+        StateAction action = validateUpdate(b, false);
         apply(e, b);
         if (b.get("eventDate") != null && e.getEventDate().isBefore(LocalDateTime.now().plusHours(2)))
             throw new IllegalArgumentException("Event date must be at least two hours in the future");
         if (e.getParticipantLimit() > 0 && requests.countByEventIdAndStatus(id, "CONFIRMED") > e.getParticipantLimit())
             throw new ConflictException("Participant limit cannot be lower than confirmed requests");
-        if ("CANCEL_REVIEW".equals(b.get("stateAction"))) e.setState(EventState.CANCELED);
-        if ("SEND_TO_REVIEW".equals(b.get("stateAction"))) e.setState(EventState.PENDING);
+        if (action == StateAction.CANCEL_REVIEW) e.setState(EventState.CANCELED);
+        if (action == StateAction.SEND_TO_REVIEW) e.setState(EventState.PENDING);
         return dto(e);
     }
 
     @Transactional
     public Map<String, Object> updateAdmin(long id, Map<String, Object> b) {
         EventEntity e = event(id);
-        validateUpdate(b, true);
+        StateAction action = validateUpdate(b, true);
         apply(e, b);
         if (b.get("eventDate") != null && e.getEventDate().isBefore(LocalDateTime.now()))
             throw new IllegalArgumentException("Event date must be in the future");
-        if ("PUBLISH_EVENT".equals(b.get("stateAction"))) {
+        if (action == StateAction.PUBLISH_EVENT) {
             if (e.getState() != EventState.PENDING) throw new ConflictException("Event is not pending");
             if (e.getEventDate().isBefore(LocalDateTime.now().plusHours(1)))
                 throw new ConflictException("Event date is too soon to publish");
             e.setState(EventState.PUBLISHED);
             e.setPublishedOn(LocalDateTime.now());
-        } else if ("REJECT_EVENT".equals(b.get("stateAction"))) {
+        } else if (action == StateAction.REJECT_EVENT) {
             if (e.getState() == EventState.PUBLISHED) throw new ConflictException("Published event cannot be rejected");
             e.setState(EventState.CANCELED);
         }
@@ -161,7 +160,7 @@ public class EventCommandService {
             throw new IllegalArgumentException("requestModeration must be boolean");
     }
 
-    private void validateUpdate(Map<String, Object> b, boolean admin) {
+    private StateAction validateUpdate(Map<String, Object> b, boolean admin) {
         for (String key : List.of("annotation", "description", "title"))
             if (b.get(key) != null) {
                 if (!(b.get(key) instanceof String)) throw new IllegalArgumentException(key + " must be a string");
@@ -180,9 +179,20 @@ public class EventCommandService {
             throw new IllegalArgumentException("requestModeration must be boolean");
         if (b.get("location") != null && (!(b.get("location") instanceof Map<?, ?> l) || !(l.get("lat") instanceof Number) || !(l.get("lon") instanceof Number)))
             throw new IllegalArgumentException("location requires numeric lat and lon");
-        Object action = b.get("stateAction");
-        if (action != null && !(action instanceof String a && Set.of(admin ? new String[]{"PUBLISH_EVENT", "REJECT_EVENT"} : new String[]{"SEND_TO_REVIEW", "CANCEL_REVIEW"}).contains(a)))
+        return parseStateAction(b.get("stateAction"), admin);
+    }
+
+    private StateAction parseStateAction(Object raw, boolean admin) {
+        if (raw == null) return null;
+        if (!(raw instanceof String value)) throw new IllegalArgumentException("Invalid stateAction");
+        StateAction action;
+        try {
+            action = StateAction.valueOf(value);
+        } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Invalid stateAction");
+        }
+        if (action.isAdminOnly() != admin) throw new IllegalArgumentException("Invalid stateAction");
+        return action;
     }
 
     private void validateText(Map<String, Object> b, String key, int min, int max, boolean required) {

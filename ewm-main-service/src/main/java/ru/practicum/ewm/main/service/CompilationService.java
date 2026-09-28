@@ -63,7 +63,7 @@ public class CompilationService {
     }
 
     private Set<EventEntity> resolve(List<?> ids) {
-        Set<EventEntity> set = new LinkedHashSet<>();
+        Set<Long> eventIds = new LinkedHashSet<>();
         for (Object value : ids) {
             long id;
             if (value instanceof Number number) {
@@ -77,10 +77,18 @@ public class CompilationService {
             } else {
                 throw new IllegalArgumentException("events must contain event IDs");
             }
-            if (!set.add(events.findById(id).orElseThrow(() -> new NotFoundException("Event with id=" + id + " was not found"))))
+            if (!eventIds.add(id))
                 throw new IllegalArgumentException("events must not contain duplicates");
         }
-        return set;
+        Map<Long, EventEntity> byId = new HashMap<>();
+        events.findAllById(eventIds).forEach(event -> byId.put(event.getId(), event));
+        for (Long id : eventIds) {
+            if (!byId.containsKey(id))
+                throw new NotFoundException("Event with id=" + id + " was not found");
+        }
+        Set<EventEntity> resolved = new LinkedHashSet<>();
+        eventIds.forEach(id -> resolved.add(byId.get(id)));
+        return resolved;
     }
 
     private void validate(Map<String, Object> b, boolean create) {

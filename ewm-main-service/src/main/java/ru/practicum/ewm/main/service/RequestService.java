@@ -74,12 +74,17 @@ public class RequestService {
         String target = String.valueOf(b.get("status"));
         if (!Set.of("CONFIRMED", "REJECTED").contains(target))
             throw new IllegalArgumentException("Invalid request status");
-        List<?> ids = (List<?>) b.getOrDefault("requestIds", List.of());
+        Set<Long> requestIds = normalizeRequestIds(b.get("requestIds"));
+        Map<Long, RequestEntity> requestsById = new HashMap<>();
+        requests.findAllById(requestIds).forEach(request -> requestsById.put(request.getId(), request));
+        for (Long requestId : requestIds) {
+            if (!requestsById.containsKey(requestId))
+                throw new NotFoundException("Request with id=" + requestId + " was not found");
+        }
         List<Map<String, Object>> confirmed = new ArrayList<>(), rejected = new ArrayList<>();
         long count = requests.countByEventIdAndStatus(eid, "CONFIRMED");
-        for (Object raw : ids) {
-            long id = ((Number) raw).longValue();
-            RequestEntity r = requests.findById(id).orElseThrow(() -> new NotFoundException("Request with id=" + id + " was not found"));
+        for (Long requestId : requestIds) {
+            RequestEntity r = requestsById.get(requestId);
             if (!r.getEvent().getId().equals(eid) || !"PENDING".equals(r.getStatus()))
                 throw new ConflictException("Request is not pending for this event");
             if ("CONFIRMED".equals(target) && e.getParticipantLimit() > 0 && count >= e.getParticipantLimit()) {
@@ -100,6 +105,30 @@ public class RequestService {
                     rejected.add(dto(r));
                 }
         return Map.of("confirmedRequests", confirmed, "rejectedRequests", rejected);
+    }
+
+    private Set<Long> normalizeRequestIds(Object rawIds) {
+        if (rawIds == null) return Set.of();
+        if (!(rawIds instanceof List<?> ids))
+            throw new IllegalArgumentException("requestIds must be an array");
+        Set<Long> normalized = new LinkedHashSet<>();
+        for (Object rawId : ids) {
+            long id;
+            if (rawId instanceof Number number) {
+                id = number.longValue();
+            } else if (rawId instanceof String text) {
+                try {
+                    id = Long.parseLong(text);
+                } catch (NumberFormatException ex) {
+                    throw new IllegalArgumentException("requestIds must contain request IDs");
+                }
+            } else {
+                throw new IllegalArgumentException("requestIds must contain request IDs");
+            }
+            if (!normalized.add(id))
+                throw new IllegalArgumentException("requestIds must not contain duplicates");
+        }
+        return normalized;
     }
 
     private UserEntity user(long id) {
