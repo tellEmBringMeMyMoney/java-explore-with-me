@@ -7,11 +7,16 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.ewm.main.dto.CommentRequest;
 import ru.practicum.ewm.main.dto.ReactionRequest;
 import ru.practicum.ewm.main.model.*;
-import ru.practicum.ewm.main.repository.*;
+import ru.practicum.ewm.main.repository.CommentReactionRepository;
+import ru.practicum.ewm.main.repository.CommentRepository;
+import ru.practicum.ewm.main.repository.EventRepository;
+import ru.practicum.ewm.main.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class CommentService {
@@ -21,7 +26,10 @@ public class CommentService {
     private final EventRepository events;
 
     public CommentService(CommentRepository comments, CommentReactionRepository reactions, UserRepository users, EventRepository events) {
-        this.comments = comments; this.reactions = reactions; this.users = users; this.events = events;
+        this.comments = comments;
+        this.reactions = reactions;
+        this.users = users;
+        this.events = events;
     }
 
     @Transactional
@@ -33,7 +41,8 @@ public class CommentService {
 
     @Transactional(readOnly = true)
     public List<Map<String, Object>> byEvent(long eventId, int from, int size) {
-        if (from < 0 || size < 1 || size > 100) throw new IllegalArgumentException("from must be non-negative and size must be between 1 and 100");
+        if (from < 0 || size < 1 || size > 100)
+            throw new IllegalArgumentException("from must be non-negative and size must be between 1 and 100");
         if (!events.existsById(eventId)) throw new NotFoundException("Event with id=" + eventId + " was not found");
         Page<CommentEntity> page = comments.findByEventIdOrderByCreatedDescIdDesc(eventId,
                 new OffsetPageRequest(from, size, Sort.by(Sort.Direction.DESC, "created", "id")));
@@ -41,7 +50,8 @@ public class CommentService {
         Map<Long, long[]> counts = new HashMap<>();
         if (!ids.isEmpty()) for (CommentReactionRepository.Counts row : reactions.countByComments(ids)) {
             long[] pair = counts.computeIfAbsent(row.getCommentId(), ignored -> new long[2]);
-            if (ReactionType.FIRE == row.getType()) pair[0] = row.getCount(); else pair[1] = row.getCount();
+            if (ReactionType.FIRE == row.getType()) pair[0] = row.getCount();
+            else pair[1] = row.getCount();
         }
         return page.getContent().stream().map(c -> {
             long[] pair = counts.getOrDefault(c.getId(), new long[2]);
@@ -52,7 +62,8 @@ public class CommentService {
     @Transactional
     public Map<String, Object> update(long userId, long commentId, CommentRequest request) {
         CommentEntity comment = comment(commentId);
-        if (!comment.getAuthor().getId().equals(userId)) throw new ForbiddenException("Only the comment author can edit it");
+        if (!comment.getAuthor().getId().equals(userId))
+            throw new ForbiddenException("Only the comment author can edit it");
         comment.updateText(request.text().trim(), now());
         return dto(comment, counts(commentId, ReactionType.FIRE), counts(commentId, ReactionType.AHH));
     }
@@ -69,13 +80,26 @@ public class CommentService {
     }
 
     private long counts(long commentId, ReactionType type) {
-        return reactions.countByComments(List.of(commentId)).stream().filter(r -> type == r.getType()).mapToLong(CommentReactionRepository.Counts::getCount).findFirst().orElse(0);
+        return reactions.countByComments(List.of(commentId)).stream()
+                .filter(r -> type == r.getType())
+                .mapToLong(CommentReactionRepository.Counts::getCount)
+                .findFirst()
+                .orElse(0);
     }
-    private CommentEntity comment(long id) { return comments.findById(id).orElseThrow(() -> new NotFoundException("Comment with id=" + id + " was not found")); }
-    private LocalDateTime now() { return LocalDateTime.now().truncatedTo(ChronoUnit.MICROS); }
+
+    private CommentEntity comment(long id) {
+        return comments.findById(id)
+                .orElseThrow(() -> new NotFoundException("Comment with id=" + id + " was not found"));
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
+    }
+
     private Map<String, Object> dto(CommentEntity c, long fire, long ahh) {
         Map<String, Object> author = Map.of("id", c.getAuthor().getId(), "name", c.getAuthor().getName());
         return Map.of("id", c.getId(), "text", c.getText(), "author", author, "event", c.getEvent().getId(),
-                "created", c.getCreated().toString(), "updated", c.getUpdated().toString(), "reactions", Map.of("fire", fire, "ahh", ahh));
+                "created", c.getCreated().toString(), "updated", c.getUpdated().toString(),
+                "reactions", Map.of("fire", fire, "ahh", ahh));
     }
 }

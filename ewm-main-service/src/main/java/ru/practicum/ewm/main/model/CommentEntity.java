@@ -1,12 +1,14 @@
 package ru.practicum.ewm.main.model;
 
 import jakarta.persistence.*;
+
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "comments")
 public class CommentEntity {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     @Column(nullable = false, length = 2000)
     private String text;
@@ -21,15 +23,43 @@ public class CommentEntity {
     @JoinColumn(name = "event_id", nullable = false)
     private EventEntity event;
 
-    protected CommentEntity() { }
-    public CommentEntity(String text, LocalDateTime now, UserEntity author, EventEntity event) {
-        this.text = text; this.created = now; this.updated = now; this.author = author; this.event = event;
+    protected CommentEntity() {
     }
-    public Long getId() { return id; }
-    public String getText() { return text; }
-    public LocalDateTime getCreated() { return created; }
-    public LocalDateTime getUpdated() { return updated; }
-    public UserEntity getAuthor() { return author; }
-    public EventEntity getEvent() { return event; }
-    public void updateText(String value, LocalDateTime now) { text = value; updated = now; }
+
+    public CommentEntity(String text, LocalDateTime now, UserEntity author, EventEntity event) {
+        this.text = text;
+        this.created = now;
+        this.updated = now;
+        this.author = author;
+        this.event = event;
+    }
+
+    public Long getId() {
+        return id;
+    }
+
+    public String getText() {
+        return text;
+    }
+
+    public LocalDateTime getCreated() {
+        return created;
+    }
+
+    public LocalDateTime getUpdated() {
+        return updated;
+    }
+
+    public UserEntity getAuthor() {
+        return author;
+    }
+
+    public EventEntity getEvent() {
+        return event;
+    }
+
+    public void updateText(String value, LocalDateTime now) {
+        text = value;
+        updated = now;
+    }
 }
