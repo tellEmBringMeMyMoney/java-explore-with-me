@@ -106,8 +106,10 @@ public class EventCommandService {
         if (b.get("eventDate") != null) e.setEventDate(parseDate((String) b.get("eventDate")));
         if (b.get("category") != null) e.setCategory(category(((Number) b.get("category")).longValue()));
         if (b.get("paid") != null) e.setPaid(booleanValue(b.get("paid"), e.isPaid()));
-        if (b.get("participantLimit") != null) e.setParticipantLimit(integerValue(b.get("participantLimit"), e.getParticipantLimit()));
-        if (b.get("requestModeration") != null) e.setRequestModeration(booleanValue(b.get("requestModeration"), e.isRequestModeration()));
+        if (b.get("participantLimit") != null)
+            e.setParticipantLimit(integerValue(b.get("participantLimit"), e.getParticipantLimit()));
+        if (b.get("requestModeration") != null)
+            e.setRequestModeration(booleanValue(b.get("requestModeration"), e.isRequestModeration()));
         if (b.get("location") instanceof Map<?, ?> l) {
             e.setLat(((Number) l.get("lat")).doubleValue());
             e.setLon(((Number) l.get("lon")).doubleValue());

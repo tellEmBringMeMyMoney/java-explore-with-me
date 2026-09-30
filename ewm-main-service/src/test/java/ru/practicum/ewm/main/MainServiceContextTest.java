@@ -84,6 +84,61 @@ class MainServiceContextTest {
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.status").value("BAD_REQUEST"));
     }
 
+    @Test
+    void commentsCanBeCreatedEditedAndReactedTo() throws Exception {
+        long ownerId = create("admin/users", Map.of("name", "Comment Owner", "email", "comment-owner@example.org"));
+        long guestId = create("admin/users", Map.of("name", "Comment Guest", "email", "comment-guest@example.org"));
+        long categoryId = create("admin/categories", Map.of("name", "Comment test"));
+        String date = LocalDateTime.now().plusDays(3).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        Map<String, Object> event = Map.of("annotation", "A sufficiently long event annotation",
+                "description", "A sufficiently long event description for comments integration test",
+                "eventDate", date, "category", categoryId, "location", Map.of("lat", 55.75, "lon", 37.61),
+                "title", "Comments integration event", "paid", false, "participantLimit", 0,
+                "requestModeration", false);
+        long eventId = create("users/" + ownerId + "/events", event);
+        String commentResponse = mvc.perform(post("/users/{userId}/events/{eventId}/comments", guestId, eventId)
+                        .contentType(APPLICATION_JSON).content("{\"text\":\"Great event\"}"))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.text").value("Great event"))
+                .andExpect(jsonPath("$.reactions.fire").value(0)).andReturn().getResponse().getContentAsString();
+        long commentId = objectMapper.readTree(commentResponse).get("id").asLong();
+        mvc.perform(get("/events/{eventId}/comments", eventId)).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].author.id").value(guestId));
+        mvc.perform(put("/users/{userId}/comments/{commentId}/reaction", guestId, commentId)
+                        .contentType(APPLICATION_JSON).content("{\"reaction\":\"fire\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reactions.fire").value(1));
+        mvc.perform(put("/users/{userId}/comments/{commentId}/reaction", guestId, commentId)
+                        .contentType(APPLICATION_JSON).content("{\"reaction\":\"ahh\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reactions.fire").value(0))
+                .andExpect(jsonPath("$.reactions.ahh").value(1));
+        mvc.perform(put("/users/{userId}/comments/{commentId}/reaction", guestId, commentId)
+                        .contentType(APPLICATION_JSON).content("{\"reaction\":\"ahh\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reactions.ahh").value(1));
+        mvc.perform(put("/users/{userId}/comments/{commentId}/reaction", guestId, commentId)
+                        .contentType(APPLICATION_JSON).content("{\"reaction\":\"fire\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reactions.fire").value(1))
+                .andExpect(jsonPath("$.reactions.ahh").value(0));
+        mvc.perform(put("/users/{userId}/comments/{commentId}/reaction", ownerId, commentId)
+                        .contentType(APPLICATION_JSON).content("{\"reaction\":\"fire\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.reactions.fire").value(2));
+        mvc.perform(patch("/users/{userId}/comments/{commentId}", guestId, commentId)
+                        .contentType(APPLICATION_JSON).content("{\"text\":\"Updated comment\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.text").value("Updated comment"));
+        mvc.perform(patch("/users/{userId}/comments/{commentId}", ownerId, commentId)
+                        .contentType(APPLICATION_JSON).content("{\"text\":\"Not mine\"}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/users/{userId}/events/{eventId}/comments", guestId, eventId)
+                        .contentType(APPLICATION_JSON).content("{\"text\":\"   \"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/users/{userId}/events/{eventId}/comments", guestId, 999999999L)
+                        .contentType(APPLICATION_JSON).content("{\"text\":\"Missing event\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(patch("/users/{userId}/comments/{commentId}", guestId, 999999999L)
+                        .contentType(APPLICATION_JSON).content("{\"text\":\"Missing comment\"}"))
+                .andExpect(status().isNotFound());
+        mvc.perform(get("/events/{eventId}/comments", eventId)).andExpect(jsonPath("$[0].reactions.fire").value(2))
+                .andExpect(jsonPath("$[0].reactions.ahh").value(0));
+    }
+
     private long create(String path, Object body) throws Exception {
         String response = mvc.perform(post("/" + path).contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsBytes(body)))
