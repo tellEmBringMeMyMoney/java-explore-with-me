@@ -1,0 +1,56 @@
+{
+  "info": {
+    "_postman_id": "d0930d8e-0c09-4e79-969c-d903acac7e50",
+    "name": "ExploreWithMe - Comments and reactions",
+    "description": "Comment feature requests. Set eventId, userId and otherUserId to existing IDs before running.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "eventId", "value": "1" },
+    { "key": "userId", "value": "1" },
+    { "key": "otherUserId", "value": "2" },
+    { "key": "commentId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Comments",
+      "item": [
+        {
+          "name": "Create comment",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 201', () => pm.response.to.have.status(201));", "pm.test('body contains id', () => pm.expect(pm.response.json().id).to.exist);", "pm.collectionVariables.set('commentId', pm.response.json().id);"] } }],
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"text\": \"Postman feature comment\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{userId}}/events/{{eventId}}/comments" }
+        },
+        {
+          "name": "Get event comments",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('body contains comment and reaction counters', () => { const c = pm.response.json().find(x => String(x.id) === String(pm.collectionVariables.get('commentId') || pm.environment.get('commentId'))); pm.expect(c).to.exist; pm.expect(c.reactions).to.have.property('fire'); pm.expect(c.reactions).to.have.property('ahh'); });"] } }],
+          "request": { "method": "GET", "url": "{{baseUrl}}/events/{{eventId}}/comments?from=0&size=10" }
+        },
+        {
+          "name": "Edit own comment",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('updated body contains id and text', () => { pm.expect(pm.response.json().id).to.exist; pm.expect(pm.response.json().text).to.eql('Edited by Postman'); });"] } }],
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"text\": \"Edited by Postman\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{userId}}/comments/{{commentId}}" }
+        },
+        {
+          "name": "Cannot edit another user's comment",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 403', () => pm.response.to.have.status(403));", "pm.test('error body exists', () => pm.expect(pm.response.json().status).to.eql('FORBIDDEN')); "] } }],
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"text\": \"Should be forbidden\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{otherUserId}}/comments/{{commentId}}" }
+        },
+        {
+          "name": "Missing comment returns error",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 404', () => pm.response.to.have.status(404));", "pm.test('error body exists', () => pm.expect(pm.response.json().status).to.eql('NOT_FOUND')); "] } }],
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"text\": \"missing\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{userId}}/comments/999999999" }
+        }
+      ]
+    },
+    {
+      "name": "Reactions",
+      "item": [
+        { "name": "Set FIRE", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('fire count is returned', () => pm.expect(pm.response.json().reactions.fire).to.be.a('number'));", "pm.test('body contains id', () => pm.expect(pm.response.json().id).to.exist);"] } }], "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reaction\": \"fire\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{userId}}/comments/{{commentId}}/reaction" } },
+        { "name": "Set AHH", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('ahh count is returned', () => pm.expect(pm.response.json().reactions.ahh).to.be.a('number'));"] } }], "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reaction\": \"ahh\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{userId}}/comments/{{commentId}}/reaction" } },
+        { "name": "Switch AHH to FIRE (idempotent per user)", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));", "pm.test('fire increased and ahh cleared', () => { pm.expect(pm.response.json().reactions.fire).to.be.at.least(1); pm.expect(pm.response.json().reactions.ahh).to.eql(0); });"] } }], "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reaction\": \"fire\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{userId}}/comments/{{commentId}}/reaction" } },
+        { "name": "Invalid reaction returns error", "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('status is 400', () => pm.response.to.have.status(400));", "pm.test('error body exists', () => pm.expect(pm.response.json().status).to.eql('BAD_REQUEST')); "] } }], "request": { "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"reaction\": \"like\"\n}", "options": { "raw": { "language": "json" } } }, "url": "{{baseUrl}}/users/{{userId}}/comments/{{commentId}}/reaction" } }
+      ]
+    }
+  ]
+}
